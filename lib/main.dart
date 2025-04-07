@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 //TODO 2: - Insert TextEditingController
 final _nameTextEditingController = TextEditingController();
@@ -37,7 +41,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const SharedPreferenceDemo(),
+      home: const MyHomePage(title: "wwww",),
     );
   }
 }
@@ -61,6 +65,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  File? _image;
+  final picker = ImagePicker();
 
   @override
   Widget build(BuildContext context) {
@@ -71,49 +77,122 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      // appBar: AppBar(
-      //   // TRY THIS: Try changing the color here to a specific color (to
-      //   // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-      //   // change color while the other colors stay the same.
-      //   backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      //   // Here we take the value from the MyHomePage object that was created by
-      //   // the App.build method, and use it to set our appbar title.
-      //   title: Text(widget.title),
-      // ),
-      // body: Center(
-      //  child: Column(
-      //    children: [
-      //      TextField(
-      //        controller: _nameTextEditingController,
-      //        keyboardType: TextInputType.name,
-      //        decoration: const InputDecoration(
-      //          labelText: 'Name',
-      //        ),
-      //      ),
-      //      const SizedBox(),
-      //      TextField(
-      //        controller: _emailTextEditingController,
-      //        keyboardType: TextInputType.emailAddress,
-      //        decoration: const InputDecoration(
-      //          labelText: 'Email',
-      //        ),
-      //      ),
-      //      const Expanded(child: SizedBox(),),
-      //      ElevatedButton(
-      //       onPressed: (){
-      //         //_updateProfile();
-      //         ScaffoldMessenger.of(context).showSnackBar(
-      //           const SnackBar(
-      //             content: Text('Profile info saved.'),
-      //           ),
-      //         );
-      //       },
-      //       child: const Text('Save')
-      //       ),
-      //    ],
-      //  ),
-      // ) // This trailing comma makes auto-formatting nicer for build methods.
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(widget.title),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Center(
+          child: Column(
+            children: [
+              _image == null
+              ?Icon(Icons.person,size :150)
+                  // ? Image.asset(
+                  //     'assets/profile.png',
+                  //     width: 150,
+                  //     height: 150,
+                  //   )
+                  : Image.file(
+                      _image!,
+                      width: 150,
+                      height: 150,
+                    ),
+              const SizedBox(
+                height: 8.0,
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                color: Colors.grey,
+                onPressed: () {
+                  getIamgeFromGalery();
+                },
+              ),
+              const SizedBox(
+                height: 8.0,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  savePicture();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile image saved.')));
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Future getIamgeFromGalery() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> savePicture() async {
+    if (_image != null) {
+      try {
+        // Save the image to a specific location
+        final appDocDir = await getApplicationDocumentsDirectory();
+        final newImagePath = '${appDocDir.path}/profile.png';
+
+        await _image!.copy(newImagePath);
+        print('File image copied successfully to $newImagePath');
+      } catch (e) {
+        print('File error copying image: $e');
+      }
+    } else {
+      AlertDialog(
+        title: const Text('Profile Image'),
+        content: const SingleChildScrollView(
+          child: ListBody(
+            children: <Widget>[
+              // <Widget> - More Readable , Only Widget ?
+              Text('Profile Image'),
+              Text('Profile Image file is missing.'),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Close'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          )
+        ],
+      );
+    }
+  }
+
+  Future<void> loadProfileImage() async {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final imagePath = '${appDocDir.path}/profile.png';
+
+    final file = File(imagePath);
+
+    if (await file.exists()) {
+      setState(() {
+        _image = file;
+        print('File Path : $imagePath');
+      });
+    } else {
+      print('File not found in $imagePath');
+    }
+  }
+
+  @override
+  void initState() {
+    //TODO - Call the loadProfileImage method during app initialization stage
+    loadProfileImage();
+    super.initState();
   }
 }
 
@@ -125,8 +204,7 @@ class SharedPreferenceDemo extends StatefulWidget {
 }
 
 class _SharedPreferenceDemoState extends State<SharedPreferenceDemo> {
-
-  Future<void>_loadProfile() async{
+  Future<void> _loadProfile() async {
     final pref = await SharedPreferences.getInstance();
     setState(() {
       _nameTextEditingController.text = pref.getString("name") ?? "";
@@ -134,7 +212,7 @@ class _SharedPreferenceDemoState extends State<SharedPreferenceDemo> {
     });
   }
 
-  Future<void>_updateProfile() async{
+  Future<void> _updateProfile() async {
     final pref = await SharedPreferences.getInstance();
     setState(() {
       pref.setString('name', _nameTextEditingController.text);
@@ -143,13 +221,13 @@ class _SharedPreferenceDemoState extends State<SharedPreferenceDemo> {
   }
 
   @override
-  void initState(){
+  void initState() {
     _loadProfile();
     super.initState();
   }
 
   @override
-  void dispose(){
+  void dispose() {
     super.dispose();
     _nameTextEditingController.dispose();
     _emailTextEditingController.dispose();
@@ -185,9 +263,11 @@ class _SharedPreferenceDemoState extends State<SharedPreferenceDemo> {
                   labelText: 'Email',
                 ),
               ),
-              const Expanded(child: SizedBox(),),
+              const Expanded(
+                child: SizedBox(),
+              ),
               ElevatedButton(
-                  onPressed: (){
+                  onPressed: () {
                     _updateProfile();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -195,12 +275,10 @@ class _SharedPreferenceDemoState extends State<SharedPreferenceDemo> {
                       ),
                     );
                   },
-                  child: const Text('Save')
-              ),
+                  child: const Text('Save')),
             ],
           ),
         ) // This trailing comma makes auto-formatting nicer for build methods.
-    );
+        );
   }
 }
-
